@@ -1,165 +1,97 @@
-'use client';
+"use client";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
-// Types for air quality data
-export interface AirQualityReading {
-  id: string;
-  location: string;
-  timestamp: string;
-  pm25: number;
-  pm10: number;
-  no2: number;
-  o3: number;
-  aqi: number;
-  category: 'Good' | 'Moderate' | 'Unhealthy for Sensitive' | 'Unhealthy' | 'Very Unhealthy' | 'Hazardous';
-}
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface AirQualityTrend {
-  time: string;
-  pm25: number;
-  pm10: number;
-  no2: number;
-  o3: number;
+  id: string;
+  date: string;
+  coGt: number;
+  pt08S1Co: number;
+  nmhcGt: number;
+  c6h6Gt: number;
+  pt08S2Nmhc: number;
+  noxGt: number;
+  pt08S4No2: number;
+  pt08S5O3: number;
+  t: number;
+  rh: number;
+  ah: number;
+  category:
+    | "Good"
+    | "Moderate"
+    | "Unhealthy for Sensitive"
+    | "Unhealthy"
+    | "Very Unhealthy"
+    | "Hazardous";
 }
 
-// Simulate API calls (replace with real API endpoints later)
-const fetchCurrentReadings = async (): Promise<AirQualityReading[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  return [
-    {
-      id: '1',
-      location: 'Downtown',
-      timestamp: new Date().toISOString(),
-      pm25: 25,
-      pm10: 35,
-      no2: 32,
-      o3: 45,
-      aqi: 85,
-      category: 'Moderate'
-    },
-    {
-      id: '2',
-      location: 'Suburb A',
-      timestamp: new Date().toISOString(),
-      pm25: 12,
-      pm10: 18,
-      no2: 22,
-      o3: 38,
-      aqi: 42,
-      category: 'Good'
-    },
-    {
-      id: '3',
-      location: 'Industrial',
-      timestamp: new Date().toISOString(),
-      pm25: 45,
-      pm10: 58,
-      no2: 62,
-      o3: 28,
-      aqi: 125,
-      category: 'Unhealthy for Sensitive'
-    },
-    {
-      id: '4',
-      location: 'Park Area',
-      timestamp: new Date().toISOString(),
-      pm25: 8,
-      pm10: 12,
-      no2: 15,
-      o3: 42,
-      aqi: 28,
-      category: 'Good'
-    },
-    {
-      id: '5',
-      location: 'Highway',
-      timestamp: new Date().toISOString(),
-      pm25: 35,
-      pm10: 42,
-      no2: 48,
-      o3: 32,
-      aqi: 95,
-      category: 'Moderate'
+const fetchTrendData = async (
+  frequency: string
+): Promise<{ data: AirQualityTrend[] }> => {
+  try {
+    const res = await fetch(
+      `http://localhost:3001/air-quality/all?start_date=2004-03-01&frequency=${frequency}`,
+      {
+        method: "GET",
+        mode: "cors",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error(`Failed to fetch data: ${res.status}`);
     }
-  ];
+
+    return res.json();
+  } catch (error) {
+    console.error("Error fetching trend data:", error);
+    return { data: [] };
+  }
 };
 
-const fetchTrendData = async (): Promise<AirQualityTrend[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  return [
-    { time: '00:00', pm25: 12, pm10: 18, no2: 25, o3: 45 },
-    { time: '04:00', pm25: 15, pm10: 22, no2: 28, o3: 48 },
-    { time: '08:00', pm25: 35, pm10: 42, no2: 45, o3: 35 },
-    { time: '12:00', pm25: 28, pm10: 35, no2: 38, o3: 55 },
-    { time: '16:00', pm25: 42, pm10: 48, no2: 52, o3: 42 },
-    { time: '20:00', pm25: 25, pm10: 30, no2: 32, o3: 38 },
-  ];
-};
-
-// Custom hooks using TanStack Query
-export const useCurrentReadings = () => {
+export const useTrendData = (
+  frequency: "daily" | "weekly" | "monthly" | "hourly" = "monthly"
+) => {
   return useQuery({
-    queryKey: ['airQuality', 'current'],
-    queryFn: fetchCurrentReadings,
-    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
-    staleTime: 2 * 60 * 1000, // Data is fresh for 2 minutes
-  });
-};
-
-export const useTrendData = () => {
-  return useQuery({
-    queryKey: ['airQuality', 'trends'],
-    queryFn: fetchTrendData,
-    refetchInterval: 10 * 60 * 1000, // Refetch every 10 minutes
-    staleTime: 5 * 60 * 1000, // Data is fresh for 5 minutes
+    queryKey: ["airQuality", "trends", frequency],
+    queryFn: () => fetchTrendData(frequency),
+    select: (json: { data }): AirQualityTrend[] =>
+      json.data.map((item) => ({
+        date: item.aq_date?.slice(0, 10),
+        time: item.aq_time?.slice(0, 5),
+        coGt: item.aq_co_gt,
+        pt08S1Co: item.aq_pt08_s1_co,
+        nmhcGt: item.aq_nmhc_gt,
+        c6h6Gt: item.aq_c6h6_gt,
+        pt08S2Nmhc: item.aq_pt08_s2_nmhc,
+        noxGt: item.aq_nox_gt,
+        pt08S4No2: item.aq_pt08_s4_no2,
+        pt08S5O3: item.aq_pt08_s5_o3,
+        t: item.aq_t,
+        rh: item.aq_rh,
+        ah: item.aq_ah,
+        category: item.category,
+      })),
+    refetchInterval: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
 // Example mutation for updating sensor settings (you can expand this)
 export const useUpdateSensorSettings = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (settings: { sensorId: string; interval: number }) => {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       return settings;
     },
     onSuccess: () => {
       // Invalidate and refetch current readings after updating settings
-      queryClient.invalidateQueries({ queryKey: ['airQuality', 'current'] });
+      queryClient.invalidateQueries({ queryKey: ["airQuality", "current"] });
     },
   });
-};
-
-// Hook to get aggregated statistics
-export const useAirQualityStats = () => {
-  const { data: readings, isLoading, error } = useCurrentReadings();
-  
-  const stats = {
-    averageAQI: 0,
-    totalSensors: 0,
-    healthySensors: 0,
-    unhealthySensors: 0,
-  };
-  
-  if (readings && readings.length > 0) {
-    stats.averageAQI = Math.round(
-      readings.reduce((sum, reading) => sum + reading.aqi, 0) / readings.length
-    );
-    stats.totalSensors = readings.length;
-    stats.healthySensors = readings.filter(r => r.aqi <= 50).length;
-    stats.unhealthySensors = readings.filter(r => r.aqi > 100).length;
-  }
-  
-  return {
-    data: stats,
-    isLoading,
-    error,
-  };
 };
